@@ -4,16 +4,16 @@ import { mock } from 'bun:test';
 export type Op = 'query' | 'execute' | 'begin' | 'commit' | 'rollback' | 'release';
 
 export interface FakeConnection {
-  connection: { threadId: number };
+  threadId: number;
   calls: { op: Op; arg?: any }[];
   queue: any[];
   failOn: Partial<Record<Op, unknown>>;
-  query: (sql: any, values?: any) => Promise<[any, any]>;
-  execute: (opts: any) => Promise<[any, any]>;
+  query: (sql: any, values?: any) => Promise<any>;
+  execute: (opts: any, values?: any) => Promise<any>;
   beginTransaction: () => Promise<void>;
   commit: () => Promise<void>;
   rollback: () => Promise<void>;
-  release: () => void;
+  release: () => Promise<void>;
   ops: () => Op[];
 }
 
@@ -23,19 +23,19 @@ export function createFakeConnection(threadId = ++threadSeq + 1000): FakeConnect
   const nextResult = (c: FakeConnection) => (c.queue.length ? c.queue.shift() : { affectedRows: 1, insertId: 1 });
 
   const conn: FakeConnection = {
-    connection: { threadId },
+    threadId,
     calls,
     queue: [],
     failOn: {},
     async query(sql, values) {
       calls.push({ op: 'query', arg: { sql, values } });
       if (conn.failOn.query) throw conn.failOn.query;
-      return [nextResult(conn), []];
+      return nextResult(conn);
     },
-    async execute(opts) {
-      calls.push({ op: 'execute', arg: opts });
+    async execute(opts, values) {
+      calls.push({ op: 'execute', arg: { ...(typeof opts === 'string' ? { sql: opts } : opts), values } });
       if (conn.failOn.execute) throw conn.failOn.execute;
-      return [nextResult(conn), []];
+      return nextResult(conn);
     },
     async beginTransaction() {
       calls.push({ op: 'begin' });
@@ -51,7 +51,7 @@ export function createFakeConnection(threadId = ++threadSeq + 1000): FakeConnect
       calls.push({ op: 'rollback' });
       if (conn.failOn.rollback) throw conn.failOn.rollback;
     },
-    release() {
+    async release() {
       calls.push({ op: 'release' });
     },
     ops: () => calls.map((c) => c.op),
@@ -91,7 +91,7 @@ export const fakePool = {
     if (event === 'connection') connectionHandler = handler;
   },
   async query() {
-    return [[{ version: '8.0.0-test' }]];
+    return [{ version: '8.0.0-test' }];
   },
   async getConnection() {
     const c = factory();
@@ -101,7 +101,7 @@ export const fakePool = {
   async end() {},
 };
 
-mock.module('mysql2/promise', () => ({
+mock.module('mariadb', () => ({
   createPool: () => {
     if (poolCreationError) throw poolCreationError;
     return fakePool;

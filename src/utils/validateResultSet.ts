@@ -1,19 +1,8 @@
-import { OkPacket, ProcedureCallPacket, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
+import type { QueryResponse } from '../types';
 
 const oversizedResultSet = GetConvarInt('mysql_resultset_warning', 1000);
 
-export default function (
-  invokingResource: string,
-  query: string,
-  rows:
-    | OkPacket
-    | ResultSetHeader
-    | ResultSetHeader[]
-    | RowDataPacket[]
-    | RowDataPacket[][]
-    | OkPacket[]
-    | ProcedureCallPacket,
-) {
+export default function (invokingResource: string, query: string, rows: QueryResponse) {
   const length = Array.isArray(rows) ? rows.length : 0;
 
   if (length < oversizedResultSet) return;

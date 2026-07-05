@@ -1,5 +1,4 @@
-import { ResultSetHeader, RowDataPacket } from 'mysql2';
-import type { QueryResponse, QueryType } from '../types';
+import type { QueryResponse, QueryType, ResultSetHeader, RowDataPacket } from '../types';
 
 export const parseResponse = (type: QueryType, result: QueryResponse): any => {
   switch (type) {

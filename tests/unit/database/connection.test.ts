@@ -16,7 +16,7 @@ describe('MySql wrapper', () => {
     expect(c.id).toBe(99);
   });
 
-  test('query() unwraps the [result] tuple and forwards args', async () => {
+  test('query() returns the driver result and forwards args', async () => {
     const fake = createFakeConnection();
     fake.queue.push([{ id: 1 }]);
     const c = new MySql(fake as any);
@@ -26,7 +26,7 @@ describe('MySql wrapper', () => {
     expect(fake.calls[0]).toEqual({ op: 'query', arg: { sql: 'SELECT ?', values: [1] } });
   });
 
-  test('execute() unwraps the result and passes the binary typeCast', async () => {
+  test('execute() returns the driver result and passes the binary typeCast', async () => {
     const fake = createFakeConnection();
     fake.queue.push({ affectedRows: 2 });
     const c = new MySql(fake as any);

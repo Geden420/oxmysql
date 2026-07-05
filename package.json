@@ -1,7 +1,7 @@
 {
   "name": "oxmysql",
   "version": "2.14.1",
-  "description": "FXServer to MySQL communication via node-mysql2",
+  "description": "FXServer to MySQL communication via the MariaDB Node.js connector",
   "bugs": "https://github.com/overextended/oxmysql/issues",
   "license": "LGPL-3.0-or-later",
   "author": "Overextended",
@@ -30,7 +30,7 @@
     "test:integration": "bun test tests/integration"
   },
   "dependencies": {
-    "mysql2": "^3.22.4",
+    "mariadb": "^3.5.3",
     "named-placeholders": "^1.1.6",
     "node-fetch": "^3.3.2"
   },
@@ -46,7 +46,6 @@
     "typescript": "^6.0.3"
   },
   "patchedDependencies": {
-    "mysql2@3.22.4": "patches/mysql2@3.22.4.patch",
     "named-placeholders@1.1.6": "patches/named-placeholders@1.1.6.patch"
   }
 }

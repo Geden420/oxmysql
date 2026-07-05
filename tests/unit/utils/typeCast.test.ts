@@ -3,19 +3,23 @@ import { typeCast, typeCastExecute } from 'utils/typeCast';
 
 type FieldOpts = {
   type: string;
-  length?: number;
-  charset?: number;
+  columnLength?: number;
+  collationIndex?: number;
   string?: () => string | null;
   buffer?: () => Buffer | null;
+  date?: () => Date | string | null;
+  datetime?: () => Date | string | null;
 };
 
 function field(opts: FieldOpts) {
   return {
     type: opts.type,
-    length: opts.length ?? 0,
-    charset: opts.charset ?? 33, // utf8 by default
+    columnLength: opts.columnLength ?? 0,
+    collation: { index: opts.collationIndex ?? 33 },
     string: opts.string ?? (() => null),
     buffer: opts.buffer ?? (() => null),
+    date: opts.date ?? (() => null),
+    datetime: opts.datetime ?? (() => null),
   } as any;
 }
 
@@ -39,34 +43,52 @@ describe('typeCast (text protocol)', () => {
   });
 
   test('TINY(1) maps to a boolean, wider TINY defers to next()', () => {
-    expect(typeCast(field({ type: 'TINY', length: 1, string: () => '1' }), mock(() => 0))).toBe(true);
-    expect(typeCast(field({ type: 'TINY', length: 1, string: () => '0' }), mock(() => 0))).toBe(false);
-    expect(typeCast(field({ type: 'TINY', length: 3, string: () => '7' }), () => 7)).toBe(7);
-    expect(typeCast(field({ type: 'TINY', length: 1, string: () => null }), () => null)).toBe(null);
+    expect(typeCast(field({ type: 'TINY', columnLength: 1, string: () => '1' }), mock(() => 0))).toBe(true);
+    expect(typeCast(field({ type: 'TINY', columnLength: 1, string: () => '0' }), mock(() => 0))).toBe(false);
+    expect(typeCast(field({ type: 'TINY', columnLength: 3, string: () => '7' }), () => 7)).toBe(7);
+    expect(typeCast(field({ type: 'TINY', columnLength: 1, string: () => null }), mock(() => 0))).toBe(null);
+  });
+
+  test('TINY(1) with a non-boolean value becomes a number without re-reading', () => {
+    const next = mock(() => 0);
+    expect(typeCast(field({ type: 'TINY', columnLength: 1, string: () => '7' }), next)).toBe(7);
+    expect(typeCast(field({ type: 'TINY', columnLength: 1, string: () => '-1' }), next)).toBe(-1);
+    expect(next).not.toHaveBeenCalled();
   });
 
   test('BIT(1) maps to a boolean', () => {
-    expect(typeCast(field({ type: 'BIT', length: 1, buffer: () => Buffer.from([1]) }), mock(() => 0))).toBe(true);
-    expect(typeCast(field({ type: 'BIT', length: 1, buffer: () => Buffer.from([0]) }), mock(() => 0))).toBe(false);
-    expect(typeCast(field({ type: 'BIT', length: 1, buffer: () => null }), () => null)).toBe(null);
+    expect(typeCast(field({ type: 'BIT', buffer: () => Buffer.from([1]) }), mock(() => 0))).toBe(true);
+    expect(typeCast(field({ type: 'BIT', buffer: () => Buffer.from([0]) }), mock(() => 0))).toBe(false);
+    expect(typeCast(field({ type: 'BIT', buffer: () => null }), mock(() => 0))).toBe(null);
+  });
+
+  test('wider BIT values return the raw buffer', () => {
+    const buffer = Buffer.from([5]);
+    expect(typeCast(field({ type: 'BIT', buffer: () => buffer }), mock(() => 0))).toBe(buffer);
+
+    const wide = Buffer.from([1, 0]);
+    expect(typeCast(field({ type: 'BIT', buffer: () => wide }), mock(() => 0))).toBe(wide);
   });
 
   test('a binary BLOB becomes a plain number array', () => {
     const result = typeCast(
-      field({ type: 'BLOB', charset: BINARY_CHARSET, buffer: () => Buffer.from([1, 2, 3]) }),
-      mock(() => 0)
-    );
+      field({ type: 'BLOB', collationIndex: BINARY_CHARSET, buffer: () => Buffer.from([1, 2, 3]) }),
+      mock(() => 0),
+    ) as any;
     expect(result).toEqual([1, 2, 3]);
     expect(Array.isArray(result)).toBe(true);
   });
 
   test('a NULL binary BLOB returns [null]', () => {
-    const result = typeCast(field({ type: 'BLOB', charset: BINARY_CHARSET, buffer: () => null }), mock(() => 0));
+    const result = typeCast(
+      field({ type: 'BLOB', collationIndex: BINARY_CHARSET, buffer: () => null }),
+      mock(() => 0),
+    ) as any;
     expect(result).toEqual([null]);
   });
 
   test('a non-binary BLOB (text charset) returns its string', () => {
-    const result = typeCast(field({ type: 'BLOB', charset: 33, string: () => 'hello' }), mock(() => 0));
+    const result = typeCast(field({ type: 'BLOB', string: () => 'hello' }), mock(() => 0));
     expect(result).toBe('hello');
   });
 
@@ -78,14 +100,58 @@ describe('typeCast (text protocol)', () => {
 });
 
 describe('typeCastExecute (binary protocol)', () => {
-  test('handles dates like the text caster', () => {
-    const result = typeCastExecute(field({ type: 'DATETIME', string: () => '2024-01-02 03:04:05' }), mock(() => 0));
-    expect(result).toBe(new Date('2024-01-02 03:04:05').getTime());
+  test('DATETIME/TIMESTAMP become epoch milliseconds', () => {
+    const date = new Date('2024-01-02 03:04:05');
+    const next = mock(() => 'unused');
+    expect(typeCastExecute(field({ type: 'DATETIME', datetime: () => date }), next)).toBe(date.getTime());
+    expect(typeCastExecute(field({ type: 'TIMESTAMP', datetime: () => date }), next)).toBe(date.getTime());
+    expect(next).not.toHaveBeenCalled();
   });
 
-  test('defers everything else to next() (does not touch BLOBs)', () => {
+  test('a null date returns null', () => {
+    expect(typeCastExecute(field({ type: 'DATETIME', datetime: () => null }), mock(() => 0))).toBeNull();
+    expect(typeCastExecute(field({ type: 'DATE', date: () => null }), mock(() => 0))).toBeNull();
+  });
+
+  test('DATE is anchored to midnight', () => {
+    const date = new Date('2024-01-02 00:00:00');
+    expect(typeCastExecute(field({ type: 'DATE', date: () => date }), mock(() => 0))).toBe(date.getTime());
+    expect(typeCastExecute(field({ type: 'DATE', date: () => '2024-01-02' }), mock(() => 0))).toBe(date.getTime());
+  });
+
+  test('binary BLOB/VARBINARY/BIT columns become plain number arrays', () => {
+    const next = mock(() => 0);
+    expect(
+      typeCastExecute(
+        field({ type: 'BLOB', collationIndex: BINARY_CHARSET, buffer: () => Buffer.from([1, 2, 3]) }),
+        next,
+      ) as any,
+    ).toEqual([1, 2, 3]);
+    expect(
+      typeCastExecute(
+        field({ type: 'VAR_STRING', collationIndex: BINARY_CHARSET, buffer: () => Buffer.from([9]) }),
+        next,
+      ) as any,
+    ).toEqual([9]);
+    expect(
+      typeCastExecute(
+        field({ type: 'BIT', collationIndex: BINARY_CHARSET, buffer: () => Buffer.from([1]) }),
+        next,
+      ) as any,
+    ).toEqual([1]);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test('a NULL binary column returns null', () => {
+    expect(
+      typeCastExecute(field({ type: 'BLOB', collationIndex: BINARY_CHARSET, buffer: () => null }), mock(() => 0)),
+    ).toBeNull();
+  });
+
+  test('non-binary string types defer to next()', () => {
     const next = mock(() => 'native');
-    expect(typeCastExecute(field({ type: 'BLOB', charset: BINARY_CHARSET }), next)).toBe('native');
-    expect(next).toHaveBeenCalled();
+    expect(typeCastExecute(field({ type: 'VAR_STRING', string: () => 'x' }), next)).toBe('native');
+    expect(typeCastExecute(field({ type: 'LONGLONG', string: () => '1' }), next)).toBe('native');
+    expect(next).toHaveBeenCalledTimes(2);
   });
 });

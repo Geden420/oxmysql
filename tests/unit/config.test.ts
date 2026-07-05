@@ -50,17 +50,19 @@ describe('getConnectionOptions', () => {
       trace: false,
       supportBigNumbers: true,
       jsonStrings: true,
+      autoJsonMap: false,
+      allowPublicKeyRetrieval: true,
       namedPlaceholders: false,
     });
     expect(typeof opts.typeCast).toBe('function');
   });
 
-  test('adds CONNECT_WITH_DB when a database is set, negated otherwise', () => {
-    expect((config.getConnectionOptions('mysql://localhost/db') as any).flags).toContain('CONNECT_WITH_DB');
-    expect((config.getConnectionOptions('host=localhost') as any).flags).toContain('-CONNECT_WITH_DB');
+  test('drops the mysql2-specific flags option', () => {
+    expect((config.getConnectionOptions('mysql://localhost/db') as any).flags).toBeUndefined();
+    expect((config.getConnectionOptions('host=localhost;flags=["COMPRESS"]') as any).flags).toBeUndefined();
   });
 
-  test('JSON-parses ssl/flags string properties', () => {
+  test('JSON-parses ssl string properties', () => {
     const opts = config.getConnectionOptions('host=h;database=db;ssl={"rejectUnauthorized":false}') as any;
     expect(opts.ssl).toEqual({ rejectUnauthorized: false });
   });

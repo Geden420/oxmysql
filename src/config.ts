@@ -1,4 +1,4 @@
-import type { ConnectionOptions } from 'mysql2';
+import type { PoolConfig } from 'mariadb';
 import { typeCast } from './utils/typeCast';
 
 export const mysql_connection_string =
@@ -75,7 +75,7 @@ function parseUri(connectionString: string) {
 
 export let convertNamedPlaceholders: null | ((query: string, parameters: Record<string, any>) => [string, any[]]);
 
-export function getConnectionOptions(connectionString: string = mysql_connection_string): ConnectionOptions {
+export function getConnectionOptions(connectionString: string = mysql_connection_string): PoolConfig {
   const options: Record<string, any> = connectionString.includes('mysql://')
     ? parseUri(connectionString)
     : connectionString
@@ -92,7 +92,7 @@ export function getConnectionOptions(connectionString: string = mysql_connection
 
   convertNamedPlaceholders = options.namedPlaceholders === 'false' ? null : require('named-placeholders')();
 
-  for (const key of ['dateStrings', 'flags', 'ssl']) {
+  for (const key of ['dateStrings', 'ssl']) {
     const value = options[key];
 
     if (typeof value === 'string') {
@@ -104,19 +104,19 @@ export function getConnectionOptions(connectionString: string = mysql_connection
     }
   }
 
-  const flags: string[] = options.flags || [];
-  flags.push(options.database ? 'CONNECT_WITH_DB' : '-CONNECT_WITH_DB');
+  delete options.flags;
 
   return {
     connectTimeout: 60000,
     trace: false,
     supportBigNumbers: true,
     jsonStrings: true,
+    autoJsonMap: false,
+    allowPublicKeyRetrieval: true,
     ...options,
     typeCast,
-    namedPlaceholders: false, // we use our own named-placeholders patch, disable mysql2s
-    flags: flags,
-  };
+    namedPlaceholders: false,
+  } as PoolConfig;
 }
 
 RegisterCommand(

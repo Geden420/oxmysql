@@ -1,4 +1,4 @@
-import type { Connection, PoolConnection } from 'mysql2/promise';
+import type { PoolConnection } from 'mariadb';
 import { scheduleTick } from '../utils/scheduleTick';
 import { sleep } from '../utils/sleep';
 import { pool } from './pool';
@@ -10,18 +10,13 @@ import { typeCastExecute } from 'utils/typeCast';
 
 const activeConnections: Record<string, MySql> = {};
 
-interface PromisePoolConnection extends Connection {
-  connection: PoolConnection;
-  release: PoolConnection['release'];
-}
-
 export class MySql {
   id: number;
-  connection: PromisePoolConnection;
+  connection: PoolConnection;
   transaction?: boolean;
 
-  constructor(connection: PromisePoolConnection) {
-    this.id = connection.connection.threadId;
+  constructor(connection: PoolConnection) {
+    this.id = connection.threadId as number;
     this.connection = connection;
     activeConnections[this.id] = this;
   }
@@ -29,19 +24,19 @@ export class MySql {
   async query(query: string, values: CFXParameters = []) {
     scheduleTick();
 
-    const [result] = await this.connection.query(query, values);
-    return result;
+    return this.connection.query(query, values);
   }
 
   async execute(query: string, values: CFXParameters = []) {
     scheduleTick();
 
-    const [result] = await this.connection.execute({
-      sql: query,
-      values: values,
-      typeCast: typeCastExecute,
-    });
-    return result;
+    return this.connection.execute(
+      {
+        sql: query,
+        typeCast: typeCastExecute,
+      },
+      values,
+    );
   }
 
   beginTransaction() {
@@ -64,7 +59,7 @@ export class MySql {
     if (this.transaction) await this.rollback().catch(() => {});
 
     delete activeConnections[this.id];
-    this.connection.release();
+    await Promise.resolve(this.connection.release()).catch(() => {});
   }
 }
 
@@ -83,5 +78,5 @@ export async function getConnection(connectionId?: number) {
     });
   }
 
-  return new MySql((await pool.getConnection()) as unknown as PromisePoolConnection);
+  return new MySql(await pool.getConnection());
 }

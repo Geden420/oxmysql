@@ -34,6 +34,7 @@ function method(name: string) {
 };
 
 // import after wiring exports: lib binds exp = global.exports.oxmysql at load
+// import after wiring exports: lib binds exp = global.exports.oxmysql at load
 const { oxmysql } = await import('../../../lib/MySQL');
 
 beforeEach(() => {

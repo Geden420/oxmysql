@@ -1,12 +1,11 @@
 import { logError, logQuery } from '../logger';
-import { CFXCallback, CFXParameters, QueryType } from '../types';
+import { CFXCallback, CFXParameters, QueryType, RowDataPacket } from '../types';
 import { parseResponse } from '../utils/parseResponse';
 import { executeType, parseExecute } from '../utils/parseExecute';
 import { getConnection } from './connection';
 import { setCallback } from '../utils/setCallback';
 import { performance } from 'perf_hooks';
 import validateResultSet from 'utils/validateResultSet';
-import { RowDataPacket } from 'mysql2';
 import { profileBatchStatements, runProfiler } from 'profiler';
 
 export const rawExecute = async (

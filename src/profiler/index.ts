@@ -1,8 +1,7 @@
 import { mysql_debug } from 'config';
 import type { MySql } from 'database';
 import { logQuery } from 'logger';
-import type { RowDataPacket } from 'mysql2';
-import type { CFXParameters } from 'types';
+import type { CFXParameters, RowDataPacket } from 'types';
 
 const profilerStatements = [
   'SET profiling_history_size = 0',

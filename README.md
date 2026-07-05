@@ -2,7 +2,7 @@
 
 # oxmysql
 
-A FiveM resource to communicate with a MySQL database using [node-mysql2](https://github.com/sidorares/node-mysql2).
+A FiveM resource to communicate with a MySQL database using [mariadb-connector-nodejs](https://github.com/mariadb-corporation/mariadb-connector-nodejs).
 
 [![](https://img.shields.io/github/downloads/overextended/oxmysql/total?style=for-the-badge&logo=github)](https://github.com/overextended/oxmysql/releases/latest/download/oxmysql.zip)
 [![](https://img.shields.io/github/downloads/overextended/oxmysql/latest/total?style=for-the-badge&logo=github)](https://github.com/overextended/oxmysql/releases/latest/download/oxmysql.zip)

@@ -76,7 +76,7 @@ describe('profileBatchStatements', () => {
   test('returns early when profiling produced no rows', async () => {
     setConvar('mysql_debug', 'true');
     config.setDebug();
-    const conn = fakeConn([]); // profiling query returns no rows
+    const conn = fakeConn([]);
     await profileBatchStatements(conn as any, 'res', 'INSERT INTO t VALUES (?)', [[1]], 0);
   });
 });
